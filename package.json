@@ -10,6 +10,8 @@
     "imap": "0.7.11",
     "mailparser": "0.3.6",
     "azure": "*",
-    "icalendar": "0.6.5"
+    "icalendar": "0.6.5",
+	"mimelib-noiconv": "*",
+	"querystring": "*"
   }
 }

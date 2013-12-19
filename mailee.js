@@ -16,16 +16,31 @@ var MailParser = require('mailparser').MailParser;
 var fs = require('fs');
 var inspect = require('util').inspect;
 var icalendar = require('icalendar');
-//var sqerlConfig = require('../config/config.js');
+var config = require('./config.js');
+var dao=require('./dataaccess.js');
+var mimelib = require("mimelib-noiconv");
+var utility=require('./utility.js');
+var querystring = require("querystring");
 
 var imap = new Imap({
+    user: config.PULL_EMAIL_ID,
+    password: config.PULL_EMAIL_PASS,
+    host: config.PULL_EMAIL_SERVER,
+    port: config.PULL_EMAIL_SERVER_PORT,
+    secure: true,
+    tls: true,
+    tlsOptions: { rejectUnauthorized: false }
+});
+/*var imap = new Imap({
     user: 'confme@ext.movial.com',
     password: 'aivohyiey0iePh',
     host: 'imap.gmail.com',
     port: 993,
     secure: true
-});
+});*/
 
+
+//console.log(imap);
 //var db_ = null;
 var isUser = {}
 var urlRegExp = new RegExp('https?://[-!*\'();:@&=+$,/?#\\[\\]A-Za-z0-9_.~%]+');
@@ -36,17 +51,42 @@ var pushUri = "";
 
 var http = require("http");
 var url = require("url");
-
+var fs = require('fs');
 var PARSE_RES = { "fetch" : "empty", "fetchMessage" : "Cold start, fetching in progress..."};
 
+
+
+process.on('uncaughtException', function (err) {
+    fs.writeFile("test.txt",  err, "utf8");    
+})
 http.createServer(function(request, response) {
     var uri = url.parse(request.url).pathname;
+    //console.log(request.url);
     if (uri === "/conf") {
-        response.setHeader("content-type", "text/plain");
+         dao.getNotification(response);
+        /*response.setHeader("content-type", "text/plain");
         response.write(JSON.stringify(PARSE_RES));
-        response.end();
-    } else {
+        response.end();*/
+    } 
+    else if (uri === "/user") {
+        var query = url.parse(request.url).query;
+        var user=querystring.parse(query);
+        //var u=utility.Nullify(user['u']);
+        //console.log(u);
+        dao.insertUser(response,utility.Nullify(user['deviceID']),utility.Nullify(user['userID']),utility.Nullify(user['firstName']),utility.Nullify(user['lastName']),utility.Nullify(user['phoneNo']),utility.Nullify(user['masterEmail']),utility.Nullify(user['password']),utility.Nullify(user['otherEmail1']),utility.Nullify(user['otherEmail2']),utility.Nullify(user['otherEmail3']),utility.Nullify(user['otherEmail4']),utility.Nullify(user['location']),utility.Nullify(user['registrationTime']));
+        
+    }
+    else if (uri === "/pushurl") {
+        var query = url.parse(request.url).query;
+        var user=querystring.parse(query);
+        //var u=utility.Nullify(user['u']);
+        //console.log(u);
+        dao.insertPushURL(response,utility.Nullify(user['deviceID']),utility.Nullify(user['userID']),utility.Nullify(user['pushURL']));
+        
+    }
+    else {
         response.setHeader("content-type", "text/plain");
+        response.write(JSON.stringify(url.parse(request.url)));
         response.end();
     }
 }).listen(process.env.port || 8080);
@@ -58,11 +98,17 @@ function checkConfMe(uri) {
 }
 
 function checkMails() {
+    /*console.log(imap);*/
     console.log('Connecting imap');
+    imap.setMaxListeners(0);
+     console.log('Connecting imap...');
+   /* imap.once('error', function(err) {
+  console.log(err);
+    });*/
     imap.connect(function(err) {
         if (err) {
             PARSE_RES['fetchMessage'] = 'Unable to connect imap: ' + err;
-            console.log(PARSE_RES['fetchMessage']);
+            console.log('Unable to connect imap '+err);
             return;
         }
         
@@ -111,7 +157,54 @@ function fetchMailProcess(fetch) {
 
             out['fetch'] = "success";
             PARSE_RES = out;
-            sendPushNotification(out);
+            var addressStr = out['to']; //'jack@smart.com, "Development, Business" <bizdev@smart.com>';
+            var addresses = mimelib.parseAddresses(addressStr);
+            console.log('No. of Attendees :'+ addresses.length);
+            console.log('Starting Invitation Save into Table Storage...');
+            if(addresses.length>0)
+            {
+            for (var i =0; i<addresses.length; i++) {
+
+                var entity = {
+                PartitionKey : 'default',
+                RowKey : utility.generateUid(),
+                UserID : addresses[i].address,
+                ToEmail : addresses[i].address,
+                FromEmail: utility.Nullify(out['from']),
+                Date : new Date(Date.parse(utility.Nullify(out['date']))),
+                Time : utility.Nullify(out['time']),
+                Subject: utility.Nullify(out['subject']),
+                Toll:utility.Nullify(out['toll']),
+                PIN: utility.Nullify(out['pin']),
+                AccessCode: utility.Nullify(out['code']),
+                Password: utility.Nullify(out['password']),
+                Description:''
+                };
+                 dao.insertInvitationEntity(entity);
+            //console.log(addresses[i].address);
+            //console.log(addresses[i].name);
+            }
+        }
+        else
+        {
+        var entity = {
+                PartitionKey : 'default',
+                RowKey : utility.generateUid(),
+                UserID : null,
+                From: utility.Nullify(out['from']),
+                Date : utility.Nullify(out['date']),
+                Time : utility.Nullify(out['time']),
+                Subject: utility.Nullify(out['subject']),
+                Toll:utility.Nullify(out['toll']),
+                PIN: utility.Nullify(out['pin']),
+                AccessCode: utility.Nullify(out['code']),
+                Password: utility.Nullify(out['password']),
+                Description:''
+                };
+                 dao.insertInvitationEntity(entity);
+        }
+           console.log('End Invitation Save into Table Storage.');
+            //sendPushNotification(out);
         });
 
         msg.on('data', function(data) {
@@ -191,15 +284,18 @@ function parseBody(mail)
     if (mail.text) {
         console.log('##### fallback to parsing text BODY ######');
         out = parseString(mail.text, ':', '\n', true, false);
+        //out["body"] = mail.text;
     } else if (mail.html) {
         console.log('##### fallback to parsing html BODY ######');
         var text = mail.html.replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>?|&nbsp;/gi, '');
         out = parseString(text, ':', '\n', true, false);
+        //out["body"] = mail.html;
     } else {
         return null;
     }
 
     out["subject"] = mail.subject;
+	
     return out;
 
     /*
@@ -328,6 +424,24 @@ function parseString(str, delimiter, endMarker, allowFuzzy, usePattern)
         {
             keyword: 'time',
             alts: 'time',
+            pattern: '.+',
+            fuzzy: false,
+        },
+        {
+            keyword: 'to',
+            alts: 'to',
+            pattern: '.+',
+            fuzzy: false,
+        },
+        {
+            keyword: 'from',
+            alts: 'from',
+            pattern: '.+',
+            fuzzy: false,
+        },
+        {
+            keyword: 'subject',
+            alts: 'subject|topic',
             pattern: '.+',
             fuzzy: false,
         },
