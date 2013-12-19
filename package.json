@@ -1,0 +1,15 @@
+{
+  "name": "ConfMe",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "mpns": "2.0.1",
+    "imap": "0.7.11",
+    "mailparser": "0.3.6",
+    "azure": "*",
+    "icalendar": "0.6.5"
+  }
+}
