@@ -3,6 +3,14 @@ function Nullify(objval)
 {
     return !objval?null:objval;
 }
+
+function convertToDateTime(date,time)
+{
+    var times=time.split(",");
+var strDateTime=date+" "+times[0]+" "+times[2].replace(")","");
+var dt=new Date(strDateTime);
+return dt;
+}
  function generateUid(separator) {
     /// <summary>
     ///    Creates a unique id for identification purposes.
@@ -22,3 +30,4 @@ function Nullify(objval)
 
 exports.Nullify=Nullify;
 exports.generateUid=generateUid;
+exports.convertToDateTime=convertToDateTime;
