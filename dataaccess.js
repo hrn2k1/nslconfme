@@ -156,15 +156,18 @@ tableService.createTableIfNotExists(TABLE_NAME, function(error) {
 
     return 'Success';
 }
-function getNotification(response)
+function getNotification(response,userID,timeStamp)
 {
-    console.log(new Date(Date.parse('2013-12-12T06:13:16.189Z')));
+    //console.log(new Date(Date.parse('2013-12-12T06:13:16.189Z')));
+    if(userID==null) userID='jari.ala-ruona@movial.com';
+    if(timeStamp==null) timeStamp='2013-01-01T06:00:00Z'
 	var TABLE_NAME="Invitations";	
 	var tableService = azure.createTableService(config.STORAGE_ACCOUNT_NAME, config.STORAGE_ACCOUNT_KEY);
 	var query = azure.TableQuery
     .select()
     .from(TABLE_NAME)
-    .where('Timestamp gt ?', new Date(Date.parse('2013-12-12T06:13:16.189Z')));
+    .where('Timestamp gt ?', new Date(Date.parse(timeStamp)))
+    .and('UserID eq ?',userID);
     var invites={"Success":"OK"};
     tableService.queryEntities(query, function(error, entities){
     if(!error){

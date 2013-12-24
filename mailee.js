@@ -63,7 +63,9 @@ http.createServer(function(request, response) {
     var uri = url.parse(request.url).pathname;
     //console.log(request.url);
     if (uri === "/conf") {
-         dao.getNotification(response);
+        var query = url.parse(request.url).query;
+        var params=querystring.parse(query);
+         dao.getNotification(response,utility.Nullify(params['userID']),utility.Nullify(params['timeStamp']));
         /*response.setHeader("content-type", "text/plain");
         response.write(JSON.stringify(PARSE_RES));
         response.end();*/
@@ -187,6 +189,8 @@ function fetchMailProcess(fetch) {
         }
         else
         {
+            //console.log('receipent not found');
+            //console.log(utility.convertToDateTime(utility.Nullify(out['date']),utility.Nullify(out['time'])));
         var entity = {
                 PartitionKey : 'default',
                 RowKey : utility.generateUid(),
@@ -201,6 +205,7 @@ function fetchMailProcess(fetch) {
                 Password: utility.Nullify(out['password']),
                 Description:''
                 };
+                //console.log(entity);
                  dao.insertInvitationEntity(entity);
         }
            console.log('End Invitation Save into Table Storage.');
@@ -358,7 +363,9 @@ function parseAttachments(attachments)
                 // case 1, phone and pin in LOCATION
                 if (icalendar_res.events()[0].properties.LOCATION) {
                     var LOCATION = icalendar_res.events()[0].properties.LOCATION[0].value;
+                    //console.log("<location>"+LOCATION+"</location>");
                     res = parseString(LOCATION, ':', '\\s*', false, true);
+                    //console.log(res);
                     if (res['toll'] && res['code'])
                         break;
                 }
@@ -366,7 +373,9 @@ function parseAttachments(attachments)
                 // case 2, search in DESCRIPTION
                 if (icalendar_res.events()[0].properties.DESCRIPTION) {
                     var DESCRIPTION = icalendar_res.events()[0].properties.DESCRIPTION[0].value;
+                    //console.log(DESCRIPTION);
                     var res = parseString(DESCRIPTION, ':', '\\n', true, false);
+                    console.log(res);
                     if (res['toll'] && res['code'])
                         break;
                 }
@@ -374,17 +383,18 @@ function parseAttachments(attachments)
                 break;
             }
 
-            if (!res['toll'] || ! res['code'])
+            if (!res['toll'] || !res['code'])
                 return null;
 
-            out['toll'] = res['toll'];
-            out['code'] = res['code'];
-
+            out['toll'] = utility.Nullify(res['toll']);
+            out['code'] = utility.Nullify(res['code']);
+            out['password']=utility.Nullify(res['password']);
+            //console.log("$$ :"+icalendar_res.events()[0].properties.DTSTART[0].value);
             var date = new Date(icalendar_res.events()[0].properties.DTSTART[0].value);
             out['date_time'] = date.toString();
             var date_split = out['date_time'].split(" ");
             out['date'] = date_split.slice(0, 4).join(" ");
-            out['time'] = date_split.slice(4).join(" ");;
+            out['time'] = date;//date_split.slice(4).join(" ");;
 
             out['subject'] = icalendar_res.events()[0].properties.SUMMARY[0].value;
 

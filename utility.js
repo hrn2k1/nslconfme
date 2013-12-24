@@ -6,8 +6,14 @@ function Nullify(objval)
 
 function convertToDateTime(date,time)
 {
-    var times=time.split(",");
+    console.log(typeof(time));
+    //console.log("Start convertToDateTime with parameter date ="+date+", time="+time);
+if(typeof(time)=="object")
+    return time;
+var times=time.split(",");
+//console.log(times);
 var strDateTime=date+" "+times[0]+" "+times[2].replace(")","");
+//console.log(strDateTime);
 var dt=new Date(strDateTime);
 return dt;
 }
